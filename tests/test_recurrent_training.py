@@ -34,18 +34,40 @@ def test_ten_training_recurrences_stay_fixed_finite_and_differentiable(tiny_mode
         assert state.num_latents == 64
         assert all(torch.isfinite(tensor).all() for tensor in state.compact_k)
         assert all(torch.isfinite(tensor).all() for tensor in state.compact_v)
+        assert all(torch.isfinite(tensor).all() for tensor in state.bias)
 
     logits = model.decode([1, 2, 3], [4], state)
     loss = logits.float().square().mean()
     loss.backward()
+    perceiver_gradients = {
+        name: parameter.grad for name, parameter in model.perceiver.named_parameters()
+    }
+    assert all(gradient is not None for gradient in perceiver_gradients.values())
+    assert all(torch.isfinite(gradient).all() for gradient in perceiver_gradients.values())
     gradient = sum(
-        parameter.grad.detach().float().square().sum()
-        for parameter in model.perceiver.parameters()
-        if parameter.grad is not None
+        value.detach().float().square().sum() for value in perceiver_gradients.values()
     ).sqrt()
     assert torch.isfinite(loss)
     assert gradient > 0
     assert all(parameter.grad is None for parameter in model.base.parameters())
+
+
+def test_recompact_train_detaches_prior_state_when_requested(tiny_model_path):
+    model = _model(tiny_model_path)
+    prior = model.compact_tokens(torch.randint(0, 100, (16,)).tolist())
+    for tensor in [*prior.compact_k, *prior.compact_v]:
+        tensor.requires_grad_(True)
+
+    current = model.recompact_train(
+        prior,
+        torch.randint(0, 100, (12,)).tolist(),
+        detach_prior=True,
+    )
+    loss = sum(tensor.float().square().mean() for tensor in current.compact_k)
+    loss.backward()
+
+    assert all(tensor.grad is None for tensor in [*prior.compact_k, *prior.compact_v])
+    assert any(parameter.grad is not None for parameter in model.perceiver.parameters())
 
 
 def test_single_and_recurrent_stage_write_resumable_checkpoints(
