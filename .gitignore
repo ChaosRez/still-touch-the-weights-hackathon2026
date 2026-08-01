@@ -17,7 +17,7 @@ ENV/
 # Training outputs / data caches
 /checkpoints/
 checkpoints/
-data/
+/data/
 *.pt
 *.pth
 *.safetensors

@@ -214,6 +214,39 @@ class STILLModel(nn.Module):
             out.add(ck, cv, bias)
         return out
 
+    def recompact_train(
+        self,
+        cache: CompactCache,
+        new_token_ids,
+        *,
+        detach_prior: bool = True,
+    ) -> CompactCache:
+        """Differentiably recompact one new raw-KV chunk with a prior compact state.
+
+        The frozen base captures the new chunk under ``no_grad``.  Only the Perceiver
+        invocation remains in the graph; optionally detaching the prior state gives the
+        bounded last-step-gradient approximation used by recurrent training.
+        """
+
+        from transformers import DynamicCache
+
+        toks = self._as_input(new_token_ids)
+        with torch.no_grad():
+            capture = DynamicCache()
+            self.base(input_ids=toks, use_cache=True, past_key_values=capture)
+
+        out = CompactCache()
+        for i in range(len(self._attn_modules)):
+            new_k = capture.layers[i].keys[0].to(self.perceiver_device)
+            new_v = capture.layers[i].values[0].to(self.perceiver_device)
+            prior_k = cache.compact_k[i].detach() if detach_prior else cache.compact_k[i]
+            prior_v = cache.compact_v[i].detach() if detach_prior else cache.compact_v[i]
+            key = torch.cat([prior_k, new_k], dim=-2)
+            value = torch.cat([prior_v, new_v], dim=-2)
+            compact_k, compact_v, bias = self.perceiver.forward_layer(i, key, value)
+            out.add(compact_k, compact_v, bias)
+        return out
+
     @torch.no_grad()
     def generate_compacted(
         self,

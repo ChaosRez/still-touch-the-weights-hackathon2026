@@ -20,6 +20,8 @@ dependencies = [
 [project.scripts]
 still-preprocess = "still.data.preprocess:main"
 still-train = "still.train:main"
+still-train-recurrent = "still.train_recurrent:main"
+still-recurrent-data = "still.data.recurrent_synthetic:main"
 still-eval = "still.eval:main"
 still-serve = "still.serve.server:main"
 
