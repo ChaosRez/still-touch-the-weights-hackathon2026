@@ -1,5 +1,12 @@
 # STILL: Neural KV Cache Compaction (HuggingFace-native)
 
+> [!NOTE]
+> **Hackathon provenance.** This project extends Construct Labs'
+> [public hackathon environment](https://github.com/constructlabs/hackathon) and uses a companion
+> [Still research fork](https://github.com/ChaosRez/still-touch-the-weights-hackathon2026) derived
+> from [MaxMeuer/still](https://github.com/MaxMeuer/still). Upstream components retain their own
+> authorship and license terms; this repository does not relicense them.
+
 A standalone reimplementation of STILL (arXiv:2606.07878) as offline forward-KL
 distillation against a frozen Qwen3 base model, in pure HuggingFace `transformers`.
 
